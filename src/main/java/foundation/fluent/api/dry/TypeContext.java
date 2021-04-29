@@ -55,7 +55,7 @@ public class TypeContext {
 
     public TypeContext(final Class<?> type, final List<TypeContext> typeParameters) {
         this.type = type;
-        this.typeParameters = IntStream.range(0, typeParameters.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), i -> typeParameters.get(i)));
+        this.typeParameters = IntStream.range(0, typeParameters.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), typeParameters::get));
     }
 
     public TypeContext(Class<?> type) {
@@ -67,7 +67,7 @@ public class TypeContext {
     }
 
     public TypeContext resolve(Method method) {
-        return resolve(method.getGenericReturnType(), );
+        return resolve(method.getGenericReturnType(), contextOf(method.getDeclaringClass(), this).typeParameters);
     }
 
     private static TypeContext resolve(Type type, final Map<String, TypeContext> typeParameters) {
@@ -88,7 +88,7 @@ public class TypeContext {
     }
 
     private static TypeContext contextOf(Class<?> type, TypeContext start) {
-        Queue<TypeContext> queue = new LinkedList<TypeContext>(singleton(start));
+        Queue<TypeContext> queue = new LinkedList<>(singleton(start));
         for(TypeContext current = queue.poll(); current != null; current = queue.poll()) {
             if(current.getType().equals(type)) {
                 return current;

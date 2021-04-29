@@ -6,11 +6,8 @@
     <version>1.0-SNAPSHOT</version>
     <modelVersion>4.0.0</modelVersion>
 
-    <name>Fluent API sentence end check.</name>
-    <description>
-        Module provides annotation based Java language extensions, that helps identifying missing methods needed to end
-        a chain (sentence) using fluent API already at compile time.
-    </description>
+    <name>Fluent API Dry run</name>
+    <description>Reflection proxy based dry run of complex fluent sentences (statements)</description>
 
     <url>https://github.com/c0stra/fluent-api-dry-run/wiki/fluent-api-dry-run</url>
 
