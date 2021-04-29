@@ -33,10 +33,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -54,6 +51,9 @@ public class TypeContext {
     private final Map<String, TypeContext> typeParameters;
 
     public TypeContext(final Class<?> type, final List<TypeContext> typeParameters) {
+        if(type.getTypeParameters().length != typeParameters.size()) {
+            throw new IllegalArgumentException(Arrays.toString(type.getTypeParameters()) + " required for type " + type + ", but actual provided arguments do not match: " + typeParameters);
+        }
         this.type = type;
         this.typeParameters = IntStream.range(0, typeParameters.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), typeParameters::get));
     }

@@ -4,6 +4,12 @@ public interface User {
 
     Page<LoginForm> opens(String url);
 
+    LoginPage opensLoginPage(String url);
+
+    interface LoginPage extends Page<LoginForm> {
+
+    }
+
     interface Page<T> {
         T andEnters();
     }
