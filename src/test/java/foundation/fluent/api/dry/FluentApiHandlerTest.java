@@ -17,7 +17,7 @@ public class FluentApiHandlerTest {
 
     @Test
     public void testIndirectParameter() {
-        user.opens("login page url").andEnters().login("login").password("password").andSubmit();
+        user.opensLoginPage("login page url").andEnters().login("login").password("password").andSubmit();
     }
 
 }
