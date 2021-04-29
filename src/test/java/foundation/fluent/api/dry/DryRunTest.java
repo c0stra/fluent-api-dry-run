@@ -4,11 +4,11 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 
-import static foundation.fluent.api.dry.FluentApiHandler.dryRun;
+import static foundation.fluent.api.dry.DryRun.create;
 
-public class FluentApiHandlerTest {
+public class DryRunTest {
 
-    User user = dryRun("Dry run", User.class, ((id, proxy, method, arguments) -> System.out.println(method + ": " + Arrays.toString(arguments))));
+    User user = DryRun.create("Dry run", User.class, ((id, proxy, method, arguments) -> System.out.println(method + ": " + Arrays.toString(arguments))));
 
     @Test
     public void testDirectParameter() {

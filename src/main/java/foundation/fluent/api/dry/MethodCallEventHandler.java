@@ -36,7 +36,7 @@ import java.lang.reflect.Method;
  * executed using the dry-run feature.
  */
 @FunctionalInterface
-public interface FluentApiCallEventHandler {
+public interface MethodCallEventHandler {
 
     /**
      * The functional method, passing the API call details to the consumer.

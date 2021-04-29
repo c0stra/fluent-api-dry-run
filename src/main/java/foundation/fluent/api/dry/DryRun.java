@@ -39,25 +39,25 @@ import static java.util.Arrays.asList;
 /**
  * Dry run fluent api handler allowing to execute a method.
  */
-public class FluentApiHandler {
+public class DryRun {
 
     private static final List<Object> globalDefaultInstances = asList("DRY RUN VALUE", 0, false, 0L, 0.0);
     private final Object id;
     private final List<Object> defaultInstances;
-    private final FluentApiCallEventHandler callEventHandler;
+    private final MethodCallEventHandler callEventHandler;
 
-    public FluentApiHandler(Object id, List<Object> defaultInstances, FluentApiCallEventHandler callEventHandler) {
+    public DryRun(Object id, List<Object> defaultInstances, MethodCallEventHandler callEventHandler) {
         this.id = id;
         this.defaultInstances = Stream.concat(globalDefaultInstances.stream(), defaultInstances.stream()).collect(Collectors.toList());
         this.callEventHandler = callEventHandler;
     }
 
-    public static <T> T dryRun(Object id, Class<T> type, FluentApiCallEventHandler callEventHandler, Object... defaultInstances) {
-        return type.cast(new FluentApiHandler(id, asList(defaultInstances), callEventHandler).proxy(new TypeContext(type)));
+    public static <T> T create(Object id, Class<T> type, MethodCallEventHandler callEventHandler, Object... defaultInstances) {
+        return type.cast(new DryRun(id, asList(defaultInstances), callEventHandler).proxy(new TypeContext(type)));
     }
 
-    public static <T> T dryRun(Object id, Class<T> type, Object... defaultInstances) {
-        return dryRun(id, type, (i, proxy, method, args) -> {}, defaultInstances);
+    public static <T> T create(Object id, Class<T> type, Object... defaultInstances) {
+        return create(id, type, (i, proxy, method, args) -> {}, defaultInstances);
     }
 
     private Object proxy(final TypeContext context) {

@@ -40,7 +40,7 @@ In order to have this feature available, you need to add following maven depende
 ### 2. Usage
 You get the dry run "implementation" of some fluent API root by following initialization:
 ```java
-User user = FluentApiHandler.dryRun("My dry run", User.class);
+User user = DryRun.create("My dry run", User.class);
 ```
 In turn you can use the fluent api of `User` and it won't throw any `NullPointerException`:
 ```java
@@ -64,7 +64,7 @@ Additional ones can be provided by additional vararg parameters of the `dryRun` 
 
 ### 4. Method invocation callback
 The implementation allows to subscribe for individual method calls using a callback.
-You can provide additional parameter `FluentApiCallEventHandler` function interface, and this one will receive
+You can provide additional parameter `MethodCallEventHandler` function interface, and this one will receive
 all method calls in the chain.
 
 ### 5. Reflection and generics
