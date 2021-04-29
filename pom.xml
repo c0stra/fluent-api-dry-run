@@ -3,7 +3,7 @@
 
     <groupId>foundation.fluent.api</groupId>
     <artifactId>fluent-api-dry-run</artifactId>
-    <version>1.24-SNAPSHOT</version>
+    <version>1.0-SNAPSHOT</version>
     <modelVersion>4.0.0</modelVersion>
 
     <name>Fluent API sentence end check.</name>
@@ -71,7 +71,6 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>${compiler.plugin.version}</version>
                 <configuration>
-                    <compilerArgument>-proc:none</compilerArgument>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
                 </configuration>
@@ -137,16 +136,6 @@
                     <keepStagingRepositoryOnCloseRuleFailure>true</keepStagingRepositoryOnCloseRuleFailure>
                     <stagingProgressTimeoutMinutes>15</stagingProgressTimeoutMinutes>
                     <autoReleaseAfterClose>true</autoReleaseAfterClose>
-                </configuration>
-            </plugin>
-            <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.0</version>
-                <configuration>
-                    <systemPropertyVariables>
-                        <project.name>${project.name}</project.name>
-                        <project.version>${project.version}</project.version>
-                    </systemPropertyVariables>
                 </configuration>
             </plugin>
         </plugins>
