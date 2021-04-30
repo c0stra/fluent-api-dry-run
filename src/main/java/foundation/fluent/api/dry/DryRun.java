@@ -29,12 +29,15 @@
 
 package foundation.fluent.api.dry;
 
-import java.lang.reflect.Proxy;
+import java.lang.reflect.Method;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.reflect.Proxy.newProxyInstance;
 import static java.util.Arrays.asList;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Stream.concat;
 
 /**
  * Dry run fluent api handler allowing to execute a method.
@@ -44,44 +47,75 @@ public class DryRun {
     private static final List<Object> globalDefaultInstances = asList("DRY RUN VALUE", 0, false, 0L, 0.0);
     private final Object id;
     private final List<Object> defaultInstances;
-    private final MethodCallEventHandler callEventHandler;
+    private final DryRunInvocationHandler invocationHandler;
 
-    public DryRun(Object id, List<Object> defaultInstances, MethodCallEventHandler callEventHandler) {
+    private DryRun(Object id, List<Object> defaultInstances, DryRunInvocationHandler dryRunInvocationHandler) {
         this.id = id;
-        this.defaultInstances = Stream.concat(globalDefaultInstances.stream(), defaultInstances.stream()).collect(Collectors.toList());
-        this.callEventHandler = callEventHandler;
+        this.defaultInstances = defaultInstances;
+        this.invocationHandler = dryRunInvocationHandler;
     }
 
-    public static <T> T create(Object id, Class<T> type, MethodCallEventHandler callEventHandler, Object... defaultInstances) {
-        return type.cast(new DryRun(id, asList(defaultInstances), callEventHandler).proxy(new TypeContext(type)));
-    }
-
-    public static <T> T create(Object id, Class<T> type, Object... defaultInstances) {
-        return create(id, type, (i, proxy, method, args) -> {}, defaultInstances);
+    public static Builder create(Object id) {
+        return new Builder(id);
     }
 
     private Object proxy(final TypeContext context) {
-        return Proxy.newProxyInstance(context.getType().getClassLoader(), new Class<?>[]{context.getType()}, (proxy, method, args) -> {
-            switch (method.getName()) {
-                case "toString": return id.toString();
-                case "hashCode": return this.hashCode();
-                case "equals": return this.equals(args[0]);
+        return newProxyInstance(
+                context.getType().getClassLoader(),
+                new Class<?>[]{context.getType()},
+                (proxy, method, args) -> invocationHandler.invoke(id, context, proxy, method, args, this)
+        );
+    }
+
+    public Object invoke(TypeContext context, Method method, Object[] args) {
+        switch (method.getName()) {
+            case "toString": return id.toString();
+            case "hashCode": return this.hashCode();
+            case "equals": return this.equals(args[0]);
+        }
+        if(void.class.equals(method.getReturnType())) {
+            return null;
+        }
+        TypeContext resolvedType = context.resolve(method.getDeclaringClass(), method.getGenericReturnType());
+        for(Object defaultInstance : defaultInstances) {
+            if(resolvedType.getType().isInstance(defaultInstance)) {
+                return defaultInstance;
             }
-            callEventHandler.onMethodCall(id, proxy, method, args);
-            if(void.class.equals(method.getReturnType())) {
-                return null;
-            }
-            TypeContext resolvedType = context.resolve(method);
-            for(Object defaultInstance : defaultInstances) {
-                if(resolvedType.getType().isInstance(defaultInstance)) {
-                    return defaultInstance;
-                }
-            }
-            if(resolvedType.getType().isInterface()) {
-                return proxy(resolvedType);
-            }
-            throw new IllegalArgumentException("No default value provided for non-interface return type " + resolvedType.getType() + " of method " + method.getName());
-        });
+        }
+        if(resolvedType.getType().isInterface()) {
+            return proxy(resolvedType);
+        }
+        throw new IllegalArgumentException("No default value provided for non-interface return type " + resolvedType.getType() + " of method " + method.getName());
+    }
+
+    public static class Builder {
+        private final Object id;
+        private final List<Object> defaultInstances = new LinkedList<>(globalDefaultInstances);
+        private DryRunInvocationHandler handler;
+
+        public Builder(Object id) {
+            this.id = id;
+        }
+
+        public Builder handler(DryRunInvocationHandler handler) {
+            this.handler = handler;
+            return this;
+        }
+
+        public Builder addDefaultInstances(Object... defaultInstances) {
+            this.defaultInstances.addAll(asList(defaultInstances));
+            return this;
+        }
+
+        public Builder setDefaultInstances(Object... defaultInstances) {
+            this.defaultInstances.clear();
+            return addDefaultInstances(defaultInstances);
+        }
+
+        public <T> T forClass(Class<T> aClass) {
+            return aClass.cast(new DryRun(id, defaultInstances, handler).proxy(new TypeContext(aClass)));
+        }
+
     }
 
 }

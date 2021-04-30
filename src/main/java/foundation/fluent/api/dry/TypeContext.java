@@ -29,18 +29,16 @@
 
 package foundation.fluent.api.dry;
 
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singleton;
+import static java.util.Collections.*;
 import static java.util.stream.Collectors.toMap;
+import static java.util.stream.IntStream.range;
 
 /**
  * Context of java reflection type, holding also resolved actual type parameters.
@@ -50,12 +48,12 @@ public class TypeContext {
     private final Class<?> type;
     private final Map<String, TypeContext> typeParameters;
 
-    public TypeContext(final Class<?> type, final List<TypeContext> typeParameters) {
-        if(type.getTypeParameters().length != typeParameters.size()) {
-            throw new IllegalArgumentException(Arrays.toString(type.getTypeParameters()) + " required for type " + type + ", but actual provided arguments do not match: " + typeParameters);
+    public TypeContext(final Class<?> type, final List<TypeContext> arguments) {
+        if(type.getTypeParameters().length != arguments.size()) {
+            throw new IllegalArgumentException(Arrays.toString(type.getTypeParameters()) + " required for type " + type + ", but actual provided arguments do not match: " + arguments);
         }
         this.type = type;
-        this.typeParameters = IntStream.range(0, typeParameters.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), typeParameters::get));
+        this.typeParameters = unmodifiableMap(range(0, arguments.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), arguments::get)));
     }
 
     public TypeContext(Class<?> type) {
@@ -66,8 +64,17 @@ public class TypeContext {
         return type;
     }
 
-    public TypeContext resolve(Method method) {
-        return resolve(method.getGenericReturnType(), contextOf(method.getDeclaringClass(), this).typeParameters);
+    public Map<String, TypeContext> getTypeParameters() {
+        return typeParameters;
+    }
+
+    public TypeContext resolve(Class<?> declaringClass, Type returnType) {
+        return resolve(returnType, contextOf(declaringClass, this).typeParameters);
+    }
+
+    @Override
+    public String toString() {
+        return type.getName() + (typeParameters.isEmpty() ? "" : typeParameters);
     }
 
     private static TypeContext resolve(Type type, final Map<String, TypeContext> typeParameters) {
@@ -75,7 +82,12 @@ public class TypeContext {
             return new TypeContext((Class<?>) type);
         }
         if(type instanceof TypeVariable<?>) {
-            return typeParameters.get(((TypeVariable<?>) type).getName());
+            String name = ((TypeVariable<?>) type).getName();
+            if(typeParameters.containsKey(name)){
+                return typeParameters.get(name);
+            } else {
+                throw new IllegalStateException("No type argument identified for parameter " + name);
+            }
         }
         if(type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;

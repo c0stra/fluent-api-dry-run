@@ -32,19 +32,23 @@ package foundation.fluent.api.dry;
 import java.lang.reflect.Method;
 
 /**
- * Event callback, that is triggered whenever any of the fluent API methods is invoked, when fluent API sentence
- * executed using the dry-run feature.
+ * In fact the invocation is first dispatched by this intercface. So one can plug any custom logic, and then delegate
+ * to the DryRun invocation implementation, if necessary.
  */
 @FunctionalInterface
-public interface MethodCallEventHandler {
+public interface DryRunInvocationHandler {
 
     /**
-     * The functional method, passing the API call details to the consumer.
-     * @param id Additional ID object, which can be used to help distinguish between fluent API sources.
-     * @param proxy Current proxy, on which the call was executed.
-     * @param method Java reflection method representation of the method, which was invoked.
-     * @param arguments Arguments passed to the method.
+     * Callback when fluent api method is invoked.
+     *
+     * @param id The unique identifier object of the whole fluent API system.
+     * @param context Type context providing collected type parameters.
+     * @param proxy Proxy, on which the method was invoked.
+     * @param method Invoked method.
+     * @param args Parameters passed to the method.
+     * @param dryRunHandler Default handler of the call (the DryRun one).
+     * @return Result of the invocation.
      */
-    void onMethodCall(Object id, Object proxy, Method method, Object[] arguments);
+    Object invoke(Object id, TypeContext context, Object proxy, Method method, Object[] args, DryRun dryRunHandler);
 
 }

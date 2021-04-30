@@ -1,5 +1,7 @@
 package foundation.fluent.api.dry;
 
+import java.util.function.Function;
+
 public interface User {
 
     Page<LoginForm> opens(String url);
@@ -11,6 +13,7 @@ public interface User {
     }
 
     interface Page<T> {
+        <R> R fill(Function<Page<T>, R> function);
         T andEnters();
     }
 
