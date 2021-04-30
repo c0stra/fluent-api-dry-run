@@ -3,7 +3,7 @@
 
     <groupId>foundation.fluent.api</groupId>
     <artifactId>fluent-api-dry-run</artifactId>
-    <version>1.1</version>
+    <version>1.2-SNAPSHOT</version>
     <modelVersion>4.0.0</modelVersion>
 
     <name>Fluent API Dry run</name>
@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/c0stra/fluent-api-dry-run.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/c0stra/fluent-api-dry-run.git</developerConnection>
         <url>https://github.com/c0stra/fluent-api-dry-run</url>
-      <tag>fluent-api-dry-run-1.1</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <properties>
