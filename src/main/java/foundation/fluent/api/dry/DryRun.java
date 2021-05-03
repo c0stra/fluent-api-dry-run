@@ -30,35 +30,52 @@
 package foundation.fluent.api.dry;
 
 import java.lang.reflect.Method;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 import static java.lang.reflect.Proxy.newProxyInstance;
-import static java.util.Arrays.asList;
-import static java.util.stream.Collectors.toList;
-import static java.util.stream.Stream.concat;
+import static java.util.Objects.isNull;
+import static java.util.Objects.nonNull;
 
 /**
  * Dry run fluent api handler allowing to execute a method.
  */
 public class DryRun {
 
-    private static final List<Object> globalDefaultInstances = asList("DRY RUN VALUE", 0, false, 0L, 0.0);
+    private static final Map<Class<?>, Class<?>> primitives = new LinkedHashMap<Class<?>, Class<?>>() {{
+        put(Boolean.class, boolean.class);
+        put(Byte.class, byte.class);
+        put(Double.class, double.class);
+        put(Float.class, float.class);
+        put(Character.class, char.class);
+        put(Integer.class, int.class);
+        put(Long.class, long.class);
+        put(Short.class, short.class);
+    }};
+
     private final Object id;
-    private final List<Object> defaultInstances;
+    private final Map<Class<?>, Object> instances;
     private final DryRunInvocationHandler invocationHandler;
 
-    private DryRun(Object id, List<Object> defaultInstances, DryRunInvocationHandler dryRunInvocationHandler) {
+    private DryRun(Object id, Map<Class<?>, Object> instances, DryRunInvocationHandler dryRunInvocationHandler) {
         this.id = id;
-        this.defaultInstances = defaultInstances;
         this.invocationHandler = dryRunInvocationHandler;
+        this.instances = instances;
     }
 
     public static Builder create(Object id) {
         return new Builder(id);
     }
 
+    public static Builder createDefault(Object id) {
+        return new Builder(id).addDefaultInstances("DRY RUN VALUE", 0, 0L, 0.0, false, 0.0F, '?', (short) 0, (byte) 0);
+    }
+
+    public static Builder create() {
+        return new Builder(null);
+    }
     private Object proxy(final TypeContext context) {
         return newProxyInstance(
                 context.getType().getClassLoader(),
@@ -77,21 +94,20 @@ public class DryRun {
             return null;
         }
         TypeContext resolvedType = context.resolve(method.getDeclaringClass(), method.getGenericReturnType());
-        for(Object defaultInstance : defaultInstances) {
-            if(resolvedType.getType().isInstance(defaultInstance)) {
-                return defaultInstance;
-            }
+        Class<?> type = resolvedType.getType();
+        if(instances.containsKey(type)) {
+            return instances.get(type);
         }
-        if(resolvedType.getType().isInterface()) {
+        if(type.isInterface()) {
             return proxy(resolvedType);
         }
-        throw new IllegalArgumentException("No default value provided for non-interface return type " + resolvedType.getType() + " of method " + method.getName());
+        throw new IllegalArgumentException("No default value provided for non-interface return type " + type + " of method " + method.getName());
     }
 
     public static class Builder {
         private final Object id;
-        private final List<Object> defaultInstances = new LinkedList<>(globalDefaultInstances);
-        private DryRunInvocationHandler handler;
+        private final Map<Class<?>, Object> instances = new LinkedHashMap<>();
+        private DryRunInvocationHandler handler = (id, context, proxy, method, args, dryRunHandler) -> dryRunHandler.invoke(context, method, args);
 
         public Builder(Object id) {
             this.id = id;
@@ -102,18 +118,36 @@ public class DryRun {
             return this;
         }
 
+        private Builder add(Class<?> type, Object instance, Object allowed) {
+            if(nonNull(type) && Objects.equals(instances.get(type), allowed)) {
+                instances.put(type, instance);
+                add(type.getSuperclass(), instance, allowed);
+                Stream.of(type.getInterfaces()).forEach(i -> add(i, instance, allowed));
+                add(primitives.get(type), instance, allowed);
+            }
+            return this;
+        }
+
+        public <T> Builder addInstance(Class<T> type, T instance) {
+            return add(type, instance, instances.get(type));
+        }
+
+        public <T> Builder addInstance(T instance) {
+            return add(instance.getClass(), instance, instances.get(instance.getClass()));
+        }
+
         public Builder addDefaultInstances(Object... defaultInstances) {
-            this.defaultInstances.addAll(asList(defaultInstances));
+            Stream.of(defaultInstances).forEach(this::addInstance);
             return this;
         }
 
         public Builder setDefaultInstances(Object... defaultInstances) {
-            this.defaultInstances.clear();
+            this.instances.clear();
             return addDefaultInstances(defaultInstances);
         }
 
         public <T> T forClass(Class<T> aClass) {
-            return aClass.cast(new DryRun(id, defaultInstances, handler).proxy(new TypeContext(aClass)));
+            return aClass.cast(new DryRun(isNull(id) ? aClass.getSimpleName() : id, instances, handler).proxy(new TypeContext(aClass)));
         }
 
     }

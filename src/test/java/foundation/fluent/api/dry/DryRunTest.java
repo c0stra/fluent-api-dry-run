@@ -6,10 +6,10 @@ import java.util.Arrays;
 
 public class DryRunTest {
 
-    User user = DryRun.create("Dry run").handler((id, context, proxy, method, arguments, dryRun) -> {
+    User user = DryRun.createDefault("Dry run").handler((id, context, proxy, method, arguments, dryRun) -> {
         System.out.println(method + ": " + Arrays.toString(arguments));
         return dryRun.invoke(context, method, arguments);
-    }).forClass(User.class);
+    }).addInstance(int.class, 100).forClass(User.class);
 
     @Test
     public void testDirectParameter() {
