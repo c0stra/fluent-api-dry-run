@@ -33,7 +33,7 @@ In order to have this feature available, you need to add following maven depende
 <dependency>
     <groupId>foundation.fluent.api</groupId>
     <artifactId>fluent-api-dry-run</artifactId>
-    <version>1.0</version>
+    <version>1.2</version>
 </dependency>
 ```
 
