@@ -6,26 +6,34 @@ import org.testng.annotations.Test;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class MockTest {
 
-    private final User user = DryRun.create().forClass(User.class);
-
     private final Map<Call, Object> responses = new HashMap<>();
+    private Call call = null;
+
+    private final User user = DryRun.create().handler((id, context, proxy, method, args, dryRunHandler) -> {
+        call = new Call(method, args);
+        if(responses.containsKey(call)) {
+            return responses.get(call);
+        }
+        return dryRunHandler.invoke(context, method, args);
+    }).forClass(User.class);
 
     @Test
     public void test() {
         when(user.opensLoginPage("http://localhost/").andEnters().login("user")).thenReturn(null);
-        //Assert.assertNull(user.opensLoginPage("http://localhost/").andEnters().login("user"));
+        Assert.assertNull(user.opensLoginPage("http://localhost/").andEnters().login("user"));
     }
 
     private <T> Response<T> when(T t) {
         return new Response<>();
     }
 
-    public static final class Response<T> {
+    public final class Response<T> {
         void thenReturn(T type) {
-
+            responses.put(call, type);
         }
     }
 
@@ -36,6 +44,19 @@ public class MockTest {
         private Call(Method method, Object[] args) {
             this.method = method;
             this.args = args;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Call call = (Call) o;
+            return method.equals(call.method);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(method);
         }
     }
 
