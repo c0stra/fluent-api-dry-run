@@ -1,12 +1,19 @@
 package foundation.fluent.api.dry;
 
+import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-public interface User {
+public interface User extends Supplier<List<String>[][]> {
 
     Page<LoginForm> opens(String url);
 
     LoginPage opensLoginPage(String url);
+
+    Consumer<List<Integer>[]> apply();
+
+    List<?>[][] wc();
 
     interface LoginPage extends Page<LoginForm> {
 
@@ -14,6 +21,7 @@ public interface User {
 
     interface Page<T> {
         <R> R fill(Function<Page<T>, R> function);
+        Supplier<?> provider();
         T andEnters();
     }
 

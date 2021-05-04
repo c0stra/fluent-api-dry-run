@@ -29,12 +29,14 @@
 
 package foundation.fluent.api.dry;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static foundation.fluent.api.dry.TypeContext.typeContext;
 import static java.lang.reflect.Proxy.newProxyInstance;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
@@ -101,6 +103,9 @@ public class DryRun {
         if(type.isInterface()) {
             return proxy(resolvedType);
         }
+        if(type.isArray()) {
+            return Array.newInstance(type.getComponentType(), 0);
+        }
         throw new IllegalArgumentException("No default value provided for non-interface return type " + type + " of method " + method.getName());
     }
 
@@ -147,7 +152,7 @@ public class DryRun {
         }
 
         public <T> T forClass(Class<T> aClass) {
-            return aClass.cast(new DryRun(isNull(id) ? aClass.getSimpleName() : id, instances, handler).proxy(new TypeContext(aClass)));
+            return aClass.cast(new DryRun(isNull(id) ? aClass.getSimpleName() : id, instances, handler).proxy(typeContext(aClass)));
         }
 
     }

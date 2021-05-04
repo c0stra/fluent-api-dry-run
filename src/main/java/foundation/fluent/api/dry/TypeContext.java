@@ -29,13 +29,12 @@
 
 package foundation.fluent.api.dry;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
+import java.lang.reflect.*;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.lang.reflect.Array.newInstance;
 import static java.util.Collections.*;
 import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
@@ -43,21 +42,25 @@ import static java.util.stream.IntStream.range;
 /**
  * Context of java reflection type, holding also resolved actual type parameters.
  */
-public class TypeContext {
+public final class TypeContext {
 
     private final Class<?> type;
     private final Map<String, TypeContext> typeParameters;
 
-    public TypeContext(final Class<?> type, final List<TypeContext> arguments) {
-        if(type.getTypeParameters().length != arguments.size()) {
-            throw new IllegalArgumentException(Arrays.toString(type.getTypeParameters()) + " required for type " + type + ", but actual provided arguments do not match: " + arguments);
-        }
+    private TypeContext(Class<?> type, Map<String, TypeContext> typeParameters) {
         this.type = type;
-        this.typeParameters = unmodifiableMap(range(0, arguments.size()).boxed().collect(toMap(i -> type.getTypeParameters()[i].getName(), arguments::get)));
+        this.typeParameters = typeParameters;
     }
 
-    public TypeContext(Class<?> type) {
-        this(type, emptyList());
+    public static TypeContext typeContext(Class<?> aClass, List<TypeContext> arguments) {
+        if(aClass.getTypeParameters().length != arguments.size()) {
+            throw new IllegalArgumentException(Arrays.toString(aClass.getTypeParameters()) + " required for type " + aClass + ", but actual provided arguments do not match: " + arguments);
+        }
+        return new TypeContext(aClass, unmodifiableMap(range(0, arguments.size()).boxed().collect(toMap(i -> aClass.getTypeParameters()[i].getName(), arguments::get))));
+    }
+
+    public static TypeContext typeContext(Class<?> aClass) {
+        return typeContext(aClass, emptyList());
     }
 
     public Class<?> getType() {
@@ -79,7 +82,7 @@ public class TypeContext {
 
     private static TypeContext resolve(Type type, final Map<String, TypeContext> typeParameters) {
         if(type instanceof Class<?>) {
-            return new TypeContext((Class<?>) type);
+            return typeContext((Class<?>) type);
         }
         if(type instanceof TypeVariable<?>) {
             String name = ((TypeVariable<?>) type).getName();
@@ -91,10 +94,21 @@ public class TypeContext {
         }
         if(type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
-            return new TypeContext(
+            return typeContext(
                     (Class<?>) parameterizedType.getRawType(),
                     Stream.of(parameterizedType.getActualTypeArguments()).map(t -> resolve(t, typeParameters)).collect(Collectors.toList())
             );
+        }
+        if(type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for(Type bound: wildcardType.getUpperBounds()) {
+                return resolve(bound, typeParameters);
+            }
+            return typeContext(Object.class);
+        }
+        if(type instanceof GenericArrayType) {
+            TypeContext context = resolve(((GenericArrayType) type).getGenericComponentType(), typeParameters);
+            return new TypeContext(newInstance(context.getType(), 0).getClass(), context.getTypeParameters());
         }
         throw new IllegalArgumentException("Unsupported type representation: " + type.getClass());
     }
