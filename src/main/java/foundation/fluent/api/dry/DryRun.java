@@ -29,8 +29,8 @@
 
 package foundation.fluent.api.dry;
 
-import java.lang.reflect.Array;
-import java.lang.reflect.Method;
+import java.lang.reflect.*;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +38,6 @@ import java.util.stream.Stream;
 
 import static foundation.fluent.api.dry.TypeContext.typeContext;
 import static java.lang.reflect.Proxy.newProxyInstance;
-import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
 /**
@@ -57,104 +56,118 @@ public class DryRun {
         put(Short.class, short.class);
     }};
 
-    private final Object id;
-    private final Map<Class<?>, Object> instances;
     private final DryRunInvocationHandler invocationHandler;
 
-    private DryRun(Object id, Map<Class<?>, Object> instances, DryRunInvocationHandler dryRunInvocationHandler) {
-        this.id = id;
+    private DryRun(DryRunInvocationHandler dryRunInvocationHandler) {
         this.invocationHandler = dryRunInvocationHandler;
-        this.instances = instances;
     }
 
-    public static Builder create(Object id) {
-        return new Builder(id);
+    public static DryRun withHandler(DryRunInvocationHandler handler) {
+        return new DryRun(handler);
     }
 
-    public static Builder createDefault(Object id) {
-        return new Builder(id).addDefaultInstances("DRY RUN VALUE", 0, 0L, 0.0, false, 0.0F, '?', (short) 0, (byte) 0);
+    public <T> T forClass(Class<T> aClass) {
+        return aClass.cast(proxy(typeContext(aClass)));
     }
 
-    public static Builder create() {
-        return new Builder(null);
+    public static DryRunInvocationHandler listener(DryRunInvocationListener listener, DryRunInvocationHandler handler) {
+        return (context, proxy, method, args, resolvedReturnType) -> {
+            listener.invoked(context, proxy, method, args, resolvedReturnType);
+            return handler.invoke(context, proxy, method, args, resolvedReturnType);
+        };
     }
     private Object proxy(final TypeContext context) {
+        return proxy(invocationHandler, context);
+    }
+
+    private static DryRunInvocationHandler handler(Object proxy) {
+        return ((DryRunInvocationHandlerAdapter) Proxy.getInvocationHandler(proxy)).invocationHandler;
+    }
+
+    private static Object proxy(DryRunInvocationHandler invocationHandler, TypeContext context) {
         return newProxyInstance(
                 context.getType().getClassLoader(),
                 new Class<?>[]{context.getType()},
-                (proxy, method, args) -> invocationHandler.invoke(id, context, proxy, method, args, this)
+                new DryRunInvocationHandlerAdapter(context, invocationHandler)
         );
     }
 
-    public Object invoke(TypeContext context, Method method, Object[] args) {
-        switch (method.getName()) {
-            case "toString": return id.toString();
-            case "hashCode": return this.hashCode();
-            case "equals": return this.equals(args[0]);
+    private static class DryRunInvocationHandlerAdapter implements InvocationHandler {
+        private final TypeContext context;
+        private final DryRunInvocationHandler invocationHandler;
+
+        private DryRunInvocationHandlerAdapter(TypeContext context, DryRunInvocationHandler invocationHandler) {
+            this.context = context;
+            this.invocationHandler = invocationHandler;
         }
-        if(void.class.equals(method.getReturnType())) {
-            return null;
+
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+            try {
+                return invocationHandler.invoke(context, proxy, method, args, method.getReturnType());
+            } catch (InvocationTargetException invocationTargetException) {
+                throw invocationTargetException.getTargetException();
+            }
         }
-        TypeContext resolvedType = context.resolve(method.getDeclaringClass(), method.getGenericReturnType());
-        Class<?> type = resolvedType.getType();
-        if(instances.containsKey(type)) {
-            return instances.get(type);
-        }
-        if(type.isInterface()) {
-            return proxy(resolvedType);
-        }
-        if(type.isArray()) {
-            return Array.newInstance(type.getComponentType(), 0);
-        }
-        throw new IllegalArgumentException("No default value provided for non-interface return type " + type + " of method " + method.getName());
     }
 
-    public static class Builder {
-        private final Object id;
-        private final Map<Class<?>, Object> instances = new LinkedHashMap<>();
-        private DryRunInvocationHandler handler = (id, context, proxy, method, args, dryRunHandler) -> dryRunHandler.invoke(context, method, args);
+    public static final DryRunInvocationHandler UNDEFINED = (context, proxy, method, args, resolvedReturnType) -> {
+        throw new IllegalArgumentException("No default value provided for non-interface return type " + resolvedReturnType + " of method " + method.getName());
+    };
 
-        public Builder(Object id) {
-            this.id = id;
-        }
-
-        public Builder handler(DryRunInvocationHandler handler) {
-            this.handler = handler;
-            return this;
-        }
-
-        private Builder add(Class<?> type, Object instance, Object allowed) {
-            if(nonNull(type) && Objects.equals(instances.get(type), allowed)) {
-                instances.put(type, instance);
-                add(type.getSuperclass(), instance, allowed);
-                Stream.of(type.getInterfaces()).forEach(i -> add(i, instance, allowed));
-                add(primitives.get(type), instance, allowed);
+    public static DryRunInvocationHandler objectHandler(Object obj, DryRunInvocationHandler next) {
+        return (context, proxy, method, args, resolvedReturnType) -> {
+            if(Object.class.equals(method.getDeclaringClass())) {
+                return method.invoke(obj, args);
             }
-            return this;
-        }
+            return next.invoke(context, proxy, method, args, resolvedReturnType);
+        };
+    }
 
-        public <T> Builder addInstance(Class<T> type, T instance) {
-            return add(type, instance, instances.get(type));
-        }
+    public static DryRunInvocationHandler proxy(DryRunInvocationHandler next) {
+        return (context, proxy, method, args, resolvedReturnType) -> {
+            if(void.class.equals(resolvedReturnType)) {
+                return null;
+            }
+            if (resolvedReturnType.isInterface()) {
+                return proxy(handler(proxy), context);
+            }
+            if (resolvedReturnType.isArray()) {
+                return Array.newInstance(resolvedReturnType.getComponentType(), 0);
+            }
+            return next.invoke(context, proxy, method, args, resolvedReturnType);
+        };
+    }
 
-        public <T> Builder addInstance(T instance) {
-            return add(instance.getClass(), instance, instances.get(instance.getClass()));
-        }
+    public static DryRunInvocationHandler returning(Map<Class<?>, Object> defaultValues, DryRunInvocationHandler next) {
+        return (context, proxy, method, args, resolvedReturnType) -> {
+            if(defaultValues.containsKey(resolvedReturnType)) {
+                return defaultValues.get(resolvedReturnType);
+            }
+            return next.invoke(context, proxy, method, args, resolvedReturnType);
+        };
+    }
 
-        public Builder addDefaultInstances(Object... defaultInstances) {
-            Stream.of(defaultInstances).forEach(this::addInstance);
-            return this;
-        }
+    public static DryRunInvocationHandler returning(DryRunInvocationHandler next, Object... defaultValues) {
+        Map<Class<?>, Object> instances = new HashMap<>();
+        Stream.of(defaultValues).forEach(instance -> add(instances, instance.getClass(), instance, instances.get(instance.getClass())));
+        return returning(instances, next);
+    }
 
-        public Builder setDefaultInstances(Object... defaultInstances) {
-            this.instances.clear();
-            return addDefaultInstances(defaultInstances);
+    private static void add(Map<Class<?>, Object> instances, Class<?> type, Object instance, Object allowed) {
+        if(nonNull(type) && Objects.equals(instances.get(type), allowed)) {
+            instances.put(type, instance);
+            add(instances, type.getSuperclass(), instance, allowed);
+            Stream.of(type.getInterfaces()).forEach(i -> add(instances, i, instance, allowed));
+            add(instances, primitives.get(type), instance, allowed);
         }
+    }
 
-        public <T> T forClass(Class<T> aClass) {
-            return aClass.cast(new DryRun(isNull(id) ? aClass.getSimpleName() : id, instances, handler).proxy(typeContext(aClass)));
-        }
-
+    public static DryRunInvocationHandler resolveReturnType(DryRunInvocationHandler next) {
+        return (context, proxy, method, args, resolvedReturnType) -> {
+            TypeContext resolvedContext = context.resolve(method.getDeclaringClass(), method.getGenericReturnType());
+            return next.invoke(resolvedContext, proxy, method, args, resolvedContext.getType());
+        };
     }
 
 }

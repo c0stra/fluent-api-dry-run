@@ -31,23 +31,33 @@ package foundation.fluent.api.dry;
 
 import java.lang.reflect.Method;
 
-/**
- * In fact the invocation is first dispatched by this intercface. So one can plug any custom logic, and then delegate
- * to the DryRun invocation implementation, if necessary.
- */
-@FunctionalInterface
-public interface DryRunInvocationHandler {
+public final class DryRunInvocation {
+    private final TypeContext context;
+    private final Object proxy;
+    private final Method method;
+    private final Object[] parameters;
 
-    /**
-     * Callback when fluent api method is invoked.
-     *
-     * @param context Type context providing collected type parameters.
-     * @param proxy Proxy, on which the method was invoked.
-     * @param method Invoked method.
-     * @param args Parameters passed to the method.
-     * @param resolvedReturnType Invoked method return type, potentially with resolved generic parameters.
-     * @return Result of the invocation.
-     */
-    Object invoke(TypeContext context, Object proxy, Method method, Object[] args, Class<?> resolvedReturnType) throws Throwable;
+    public DryRunInvocation(TypeContext context, Object proxy, Method method, Object[] parameters) {
+        this.context = context;
+        this.proxy = proxy;
+        this.method = method;
+        this.parameters = parameters;
+    }
+
+    public TypeContext getContext() {
+        return context;
+    }
+
+    public Object getProxy() {
+        return proxy;
+    }
+
+    public Method getMethod() {
+        return method;
+    }
+
+    public Object[] getParameters() {
+        return parameters;
+    }
 
 }

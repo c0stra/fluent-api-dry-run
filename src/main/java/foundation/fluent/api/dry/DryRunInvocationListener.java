@@ -27,25 +27,26 @@
  *
  */
 
-package foundation.fluent.api.mock;
-
-import foundation.fluent.api.dry.DryRun;
-import foundation.fluent.api.dry.DryRunInvocationHandler;
-import foundation.fluent.api.dry.TypeContext;
+package foundation.fluent.api.dry;
 
 import java.lang.reflect.Method;
 
-public class Fluent {
+/**
+ * In fact the invocation is first dispatched by this intercface. So one can plug any custom logic, and then delegate
+ * to the DryRun invocation implementation, if necessary.
+ */
+@FunctionalInterface
+public interface DryRunInvocationListener {
 
-    private static final DryRunInvocationHandler mockingHandler = new DryRunInvocationHandler() {
-        @Override
-        public Object invoke(Object id, TypeContext context, Object proxy, Method method, Object[] args, DryRun dryRunHandler) {
-            return null;
-        }
-    };
-
-    public static <T> T mock(Class<T> type) {
-        return DryRun.create().handler(mockingHandler).forClass(type);
-    }
+    /**
+     * Callback when fluent api method is invoked.
+     *
+     * @param context Type context providing collected type parameters.
+     * @param proxy Proxy, on which the method was invoked.
+     * @param method Invoked method.
+     * @param args Parameters passed to the method.
+     * @param resolvedReturnType Invoked method return type, potentially with resolved generic parameters.
+     */
+    void invoked(TypeContext context, Object proxy, Method method, Object[] args, Class<?> resolvedReturnType) throws Throwable;
 
 }

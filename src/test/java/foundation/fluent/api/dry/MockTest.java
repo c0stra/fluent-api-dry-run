@@ -8,17 +8,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+import static foundation.fluent.api.dry.DryRun.*;
+
 public class MockTest {
 
     private final Map<Call, Object> responses = new HashMap<>();
     private Call call = null;
+    private DryRunInvocationHandler next = resolveReturnType(proxy(UNDEFINED));
 
-    private final User user = DryRun.create().handler((id, context, proxy, method, args, dryRunHandler) -> {
+    private final User user = DryRun.withHandler((context, proxy, method, args, resolvedReturnType) -> {
         call = new Call(method, args);
         if(responses.containsKey(call)) {
             return responses.get(call);
         }
-        return dryRunHandler.invoke(context, method, args);
+        return next.invoke(context, proxy, method, args, resolvedReturnType);
     }).forClass(User.class);
 
     @Test

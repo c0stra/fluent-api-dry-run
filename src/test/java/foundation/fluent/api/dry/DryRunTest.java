@@ -4,14 +4,15 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.List;
+
+import static foundation.fluent.api.dry.DryRun.*;
 
 public class DryRunTest {
 
-    User user = DryRun.createDefault("Dry run").handler((id, context, proxy, method, arguments, dryRun) -> {
-        System.out.println(method + ": " + Arrays.toString(arguments));
-        return dryRun.invoke(context, method, arguments);
-    }).addInstance(int.class, 100).forClass(User.class);
+    User user = DryRun.withHandler(listener(
+            (context, proxy, method, arguments, returnType) -> System.out.println(method + ": " + Arrays.toString(arguments)),
+            resolveReturnType(proxy(UNDEFINED))
+    )).forClass(User.class);
 
     @Test
     public void testDirectParameter() {
