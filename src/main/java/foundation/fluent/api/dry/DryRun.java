@@ -29,7 +29,8 @@
 
 package foundation.fluent.api.dry;
 
-import java.lang.reflect.*;
+import foundation.fluent.api.dry.handlers.*;
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -71,44 +72,14 @@ public class DryRun {
     }
 
     public static DryRunInvocationHandler listener(DryRunInvocationListener listener, DryRunInvocationHandler handler) {
-        return (context, proxy, method, args, resolvedReturnType) -> {
-            listener.invoked(context, proxy, method, args, resolvedReturnType);
-            return handler.invoke(context, proxy, method, args, resolvedReturnType);
-        };
+        return new ListeningInvocationHandler(listener, handler);
     }
     private Object proxy(final TypeContext context) {
         return proxy(invocationHandler, context);
     }
 
-    private static DryRunInvocationHandler handler(Object proxy) {
-        return ((DryRunInvocationHandlerAdapter) Proxy.getInvocationHandler(proxy)).invocationHandler;
-    }
-
-    private static Object proxy(DryRunInvocationHandler invocationHandler, TypeContext context) {
-        return newProxyInstance(
-                context.getType().getClassLoader(),
-                new Class<?>[]{context.getType()},
-                new DryRunInvocationHandlerAdapter(context, invocationHandler)
-        );
-    }
-
-    private static class DryRunInvocationHandlerAdapter implements InvocationHandler {
-        private final TypeContext context;
-        private final DryRunInvocationHandler invocationHandler;
-
-        private DryRunInvocationHandlerAdapter(TypeContext context, DryRunInvocationHandler invocationHandler) {
-            this.context = context;
-            this.invocationHandler = invocationHandler;
-        }
-
-        @Override
-        public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            try {
-                return invocationHandler.invoke(context, proxy, method, args, method.getReturnType());
-            } catch (InvocationTargetException invocationTargetException) {
-                throw invocationTargetException.getTargetException();
-            }
-        }
+    public static Object proxy(DryRunInvocationHandler invocationHandler, TypeContext context) {
+        return newProxyInstance(context.getType().getClassLoader(), new Class<?>[]{context.getType()}, new DryRunInvocationHandlerAdapter(context, invocationHandler));
     }
 
     public static final DryRunInvocationHandler UNDEFINED = (context, proxy, method, args, resolvedReturnType) -> {
@@ -116,36 +87,15 @@ public class DryRun {
     };
 
     public static DryRunInvocationHandler objectHandler(Object obj, DryRunInvocationHandler next) {
-        return (context, proxy, method, args, resolvedReturnType) -> {
-            if(Object.class.equals(method.getDeclaringClass())) {
-                return method.invoke(obj, args);
-            }
-            return next.invoke(context, proxy, method, args, resolvedReturnType);
-        };
+        return new InvocationHandlerDelegatingObjectMethods(obj, next);
     }
 
     public static DryRunInvocationHandler proxy(DryRunInvocationHandler next) {
-        return (context, proxy, method, args, resolvedReturnType) -> {
-            if(void.class.equals(resolvedReturnType)) {
-                return null;
-            }
-            if (resolvedReturnType.isInterface()) {
-                return proxy(handler(proxy), context);
-            }
-            if (resolvedReturnType.isArray()) {
-                return Array.newInstance(resolvedReturnType.getComponentType(), 0);
-            }
-            return next.invoke(context, proxy, method, args, resolvedReturnType);
-        };
+        return new InvocationHandlerPropagatingProxy(next);
     }
 
     public static DryRunInvocationHandler returning(Map<Class<?>, Object> defaultValues, DryRunInvocationHandler next) {
-        return (context, proxy, method, args, resolvedReturnType) -> {
-            if(defaultValues.containsKey(resolvedReturnType)) {
-                return defaultValues.get(resolvedReturnType);
-            }
-            return next.invoke(context, proxy, method, args, resolvedReturnType);
-        };
+        return new InvocationHandlerReturningDefaultValues(defaultValues, next);
     }
 
     public static DryRunInvocationHandler returning(DryRunInvocationHandler next, Object... defaultValues) {
@@ -164,10 +114,7 @@ public class DryRun {
     }
 
     public static DryRunInvocationHandler resolveReturnType(DryRunInvocationHandler next) {
-        return (context, proxy, method, args, resolvedReturnType) -> {
-            TypeContext resolvedContext = context.resolve(method.getDeclaringClass(), method.getGenericReturnType());
-            return next.invoke(resolvedContext, proxy, method, args, resolvedContext.getType());
-        };
+        return new InvocationHandlerResolvingGenericReturnTypeParameters(next);
     }
 
 }
